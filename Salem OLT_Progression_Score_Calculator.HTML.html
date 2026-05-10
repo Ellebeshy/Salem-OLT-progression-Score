@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OLT Progression Score Calculator</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f7f6f2;
+    --surface: #ffffff;
+    --border: #e2e0d8;
+    --text: #1a1916;
+    --muted: #6b6860;
+    --low: #2d6a4f;
+    --low-bg: #d8f3dc;
+    --low-border: #95d5a8;
+    --mod: #b45309;
+    --mod-bg: #fef3c7;
+    --mod-border: #fbbf24;
+    --high: #9b1c1c;
+    --high-bg: #fee2e2;
+    --high-border: #f87171;
+    --accent: #1e3a5f;
+    --accent-light: #e8eef6;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 2rem 1rem 4rem;
+  }
+
+  .container {
+    max-width: 720px;
+    margin: 0 auto;
+  }
+
+  header {
+    border-bottom: 2px solid var(--text);
+    padding-bottom: 1.5rem;
+    margin-bottom: 2rem;
+  }
+
+  .journal-tag {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 0.75rem;
+  }
+
+  h1 {
+    font-family: 'DM Serif Display', serif;
+    font-size: 1.75rem;
+    line-height: 1.2;
+    color: var(--text);
+    margin-bottom: 0.4rem;
+  }
+
+  h1 em {
+    font-style: italic;
+    color: var(--accent);
+  }
+
+  .subtitle {
+    font-size: 0.85rem;
+    color: var(--muted);
+    font-weight: 300;
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+  }
+
+  .card-title {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 1.25rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .predictor {
+    margin-bottom: 1.5rem;
+  }
+
+  .predictor:last-child { margin-bottom: 0; }
+
+  .predictor-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 0.5rem;
+  }
+
+  .predictor-name {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .predictor-range {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--muted);
+  }
+
+  .predictor-hint {
+    font-size: 0.78rem;
+    color: var(--muted);
+    margin-bottom: 0.6rem;
+    font-weight: 300;
+  }
+
+  .options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+
+  .opt {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    cursor: pointer;
+  }
+
+  .opt input[type="radio"] { display: none; }
+
+  .opt-label {
+    font-size: 0.82rem;
+    padding: 0.35rem 0.75rem;
+    border: 1.5px solid var(--border);
+    border-radius: 2px;
+    background: var(--bg);
+    cursor: pointer;
+    transition: all 0.12s ease;
+    user-select: none;
+    font-weight: 400;
+    white-space: nowrap;
+  }
+
+  .opt input:checked + .opt-label {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+    font-weight: 500;
+  }
+
+  .opt-label:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .opt input:checked + .opt-label:hover {
+    color: #fff;
+  }
+
+  .divider { height: 1px; background: var(--border); margin: 1rem 0; }
+
+  #result-section {
+    display: none;
+  }
+
+  .result-card {
+    border-radius: 4px;
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+    border: 2px solid;
+  }
+
+  .result-card.low    { background: var(--low-bg);  border-color: var(--low-border);  }
+  .result-card.mod    { background: var(--mod-bg);  border-color: var(--mod-border);  }
+  .result-card.high   { background: var(--high-bg); border-color: var(--high-border); }
+
+  .result-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 1rem;
+  }
+
+  .score-display {
+    font-family: 'DM Serif Display', serif;
+    font-size: 3.5rem;
+    line-height: 1;
+  }
+
+  .score-display.low  { color: var(--low); }
+  .score-display.mod  { color: var(--mod); }
+  .score-display.high { color: var(--high); }
+
+  .score-denom {
+    font-family: 'DM Serif Display', serif;
+    font-size: 1.2rem;
+    color: var(--muted);
+  }
+
+  .risk-badge {
+    display: inline-block;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 0.3rem 0.7rem;
+    border-radius: 2px;
+    font-weight: 500;
+    margin-top: 0.25rem;
+  }
+
+  .risk-badge.low  { background: var(--low);  color: #fff; }
+  .risk-badge.mod  { background: var(--mod);  color: #fff; }
+  .risk-badge.high { background: var(--high); color: #fff; }
+
+  .progression-rate {
+    font-size: 2.2rem;
+    font-family: 'DM Serif Display', serif;
+    line-height: 1;
+    margin-bottom: 0.2rem;
+  }
+
+  .progression-rate.low  { color: var(--low); }
+  .progression-rate.mod  { color: var(--mod); }
+  .progression-rate.high { color: var(--high); }
+
+  .rate-label {
+    font-size: 0.78rem;
+    color: var(--muted);
+    font-weight: 300;
+  }
+
+  .recommendation-block {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1.25rem;
+    margin-top: 1rem;
+  }
+
+  .rec-title {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 0.75rem;
+  }
+
+  .rec-items { list-style: none; }
+
+  .rec-items li {
+    font-size: 0.85rem;
+    padding: 0.35rem 0;
+    padding-left: 1.1rem;
+    position: relative;
+    line-height: 1.4;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .rec-items li:last-child { border-bottom: none; }
+
+  .rec-items li::before {
+    content: '→';
+    position: absolute;
+    left: 0;
+    color: var(--muted);
+    font-size: 0.75rem;
+  }
+
+  .score-breakdown {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1.25rem;
+    margin-bottom: 1rem;
+  }
+
+  .breakdown-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.3rem 0;
+    font-size: 0.82rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .breakdown-row:last-child { border-bottom: none; }
+
+  .breakdown-label { color: var(--muted); }
+
+  .breakdown-pts {
+    font-family: 'DM Mono', monospace;
+    font-weight: 500;
+    font-size: 0.8rem;
+  }
+
+  .breakdown-pts.nonzero { color: var(--accent); }
+
+  .breakdown-total {
+    font-weight: 600;
+    border-top: 2px solid var(--text) !important;
+    margin-top: 0.2rem;
+    padding-top: 0.4rem !important;
+  }
+
+  .breakdown-total .breakdown-label { color: var(--text); font-weight: 600; }
+  .breakdown-total .breakdown-pts   { color: var(--text); font-size: 0.9rem; }
+
+  .actions {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    margin-top: 1.5rem;
+  }
+
+  button {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 500;
+    padding: 0.55rem 1.25rem;
+    border-radius: 2px;
+    cursor: pointer;
+    transition: all 0.12s ease;
+    border: 1.5px solid;
+  }
+
+  .btn-primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+  }
+
+  .btn-primary:hover { opacity: 0.88; }
+
+  .btn-secondary {
+    background: transparent;
+    border-color: var(--border);
+    color: var(--muted);
+  }
+
+  .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+
+  .disclaimer {
+    font-size: 0.72rem;
+    color: var(--muted);
+    line-height: 1.5;
+    margin-top: 2rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border);
+  }
+
+  .ci-note {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--muted);
+    margin-top: 0.2rem;
+  }
+
+  .performance-strip {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 1rem;
+  }
+
+  .perf-cell {
+    background: var(--surface);
+    padding: 0.75rem;
+    text-align: center;
+  }
+
+  .perf-val {
+    font-family: 'DM Mono', monospace;
+    font-size: 1rem;
+    font-weight: 500;
+    color: var(--accent);
+    display: block;
+  }
+
+  .perf-label {
+    font-size: 0.65rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    display: block;
+    margin-top: 0.15rem;
+  }
+
+  @media print {
+    body { background: white; padding: 1rem; }
+    .actions, .btn-secondary, .btn-primary { display: none; }
+    #result-section { display: block !important; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <div class="journal-tag">Foot &amp; Ankle International · Clinical Decision Support</div>
+    <h1>Radiographic-CT OLT<br><em>Progression Score</em></h1>
+    <p class="subtitle">Weighted 0–9 prognostic scoring system · Ellebeshy et al., 2026</p>
+  </header>
+
+  <!-- Model performance summary -->
+  <div class="performance-strip">
+    <div class="perf-cell">
+      <span class="perf-val">0.79</span>
+      <span class="perf-label">Corrected AUC</span>
+    </div>
+    <div class="perf-cell">
+      <span class="perf-val">0.77</span>
+      <span class="perf-label">Temporal validation AUC</span>
+    </div>
+    <div class="perf-cell">
+      <span class="perf-val">0.84</span>
+      <span class="perf-label">Interobserver ICC</span>
+    </div>
+  </div>
+
+  <!-- Input form -->
+  <div class="card">
+    <div class="card-title">CT Predictor Inputs · Baseline Imaging</div>
+
+    <!-- Predictor 1 -->
+    <div class="predictor">
+      <div class="predictor-header">
+        <span class="predictor-name">1. Subchondral Cyst Volume</span>
+        <span class="predictor-range">0–3 pts</span>
+      </div>
+      <div class="predictor-hint">Ellipsoid formula: π/6 × length × width × depth (mm³) on thin-slice CT</div>
+      <div class="options">
+        <label class="opt"><input type="radio" name="cyst" value="0"><span class="opt-label">No cyst (0 pts)</span></label>
+        <label class="opt"><input type="radio" name="cyst" value="1"><span class="opt-label">&lt; 500 mm³ (1 pt)</span></label>
+        <label class="opt"><input type="radio" name="cyst" value="2"><span class="opt-label">500–1,500 mm³ (2 pts)</span></label>
+        <label class="opt"><input type="radio" name="cyst" value="3"><span class="opt-label">&gt; 1,500 mm³ (3 pts)</span></label>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- Predictor 2 -->
+    <div class="predictor">
+      <div class="predictor-header">
+        <span class="predictor-name">2. Maximum Subchondral Sclerosis Depth</span>
+        <span class="predictor-range">0–2 pts</span>
+      </div>
+      <div class="predictor-hint">Maximum depth of reactive sclerosis beneath the talar dome on CT (mm)</div>
+      <div class="options">
+        <label class="opt"><input type="radio" name="sclerosis" value="0"><span class="opt-label">&lt; 2 mm (0 pts)</span></label>
+        <label class="opt"><input type="radio" name="sclerosis" value="1"><span class="opt-label">2–3.9 mm (1 pt)</span></label>
+        <label class="opt"><input type="radio" name="sclerosis" value="2"><span class="opt-label">≥ 4 mm (2 pts)</span></label>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- Predictor 3 -->
+    <div class="predictor">
+      <div class="predictor-header">
+        <span class="predictor-name">3. Maximum Lucency / Fragment Gap Width</span>
+        <span class="predictor-range">0–2 pts</span>
+      </div>
+      <div class="predictor-hint">Strongest single predictor (OR 8.71). Maximum gap between fragment and talar bed on CT (mm)</div>
+      <div class="options">
+        <label class="opt"><input type="radio" name="lucency" value="0"><span class="opt-label">None (0 pts)</span></label>
+        <label class="opt"><input type="radio" name="lucency" value="1"><span class="opt-label">&lt; 1 mm (1 pt)</span></label>
+        <label class="opt"><input type="radio" name="lucency" value="2"><span class="opt-label">≥ 1 mm (2 pts)</span></label>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- Predictor 4 -->
+    <div class="predictor">
+      <div class="predictor-header">
+        <span class="predictor-name">4. Joint Space Narrowing</span>
+        <span class="predictor-range">0–1 pt</span>
+      </div>
+      <div class="predictor-hint">Difference from contralateral ankle on standardised weight-bearing AP radiograph (mm)</div>
+      <div class="options">
+        <label class="opt"><input type="radio" name="narrowing" value="0"><span class="opt-label">&lt; 1 mm vs contralateral (0 pts)</span></label>
+        <label class="opt"><input type="radio" name="narrowing" value="1"><span class="opt-label">≥ 1 mm vs contralateral (1 pt)</span></label>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- Predictor 5 -->
+    <div class="predictor">
+      <div class="predictor-header">
+        <span class="predictor-name">5. Lesion Containment (Axial CT)</span>
+        <span class="predictor-range">0–1 pt</span>
+      </div>
+      <div class="predictor-hint">Contained = all cortical margins intact on axial CT; Uncontained = ≥1 margin breach</div>
+      <div class="options">
+        <label class="opt"><input type="radio" name="containment" value="0"><span class="opt-label">Contained (0 pts)</span></label>
+        <label class="opt"><input type="radio" name="containment" value="1"><span class="opt-label">Uncontained ≥1 breach (1 pt)</span></label>
+      </div>
+    </div>
+  </div>
+
+  <div class="actions">
+    <button class="btn-primary" onclick="calculate()">Calculate Score</button>
+    <button class="btn-secondary" onclick="resetForm()">Reset</button>
+  </div>
+
+  <!-- Result section -->
+  <div id="result-section">
+
+    <div style="height:1.5rem"></div>
+
+    <div id="result-card" class="result-card">
+      <div class="result-top">
+        <div>
+          <div id="score-num" class="score-display"></div>
+          <span class="score-denom">/ 9</span>
+          <div style="margin-top:0.4rem">
+            <span id="risk-badge" class="risk-badge"></span>
+          </div>
+        </div>
+        <div style="text-align:right">
+          <div id="prog-rate" class="progression-rate"></div>
+          <div class="rate-label">imaging-defined<br>progression rate</div>
+          <div id="ci-note" class="ci-note"></div>
+        </div>
+      </div>
+
+      <div id="recommendation-block" class="recommendation-block">
+        <div class="rec-title">Evidence-Based Management Recommendation</div>
+        <ul class="rec-items" id="rec-list"></ul>
+      </div>
+    </div>
+
+    <!-- Score breakdown -->
+    <div class="score-breakdown">
+      <div class="card-title" style="border-bottom:1px solid var(--border); padding-bottom:0.5rem; margin-bottom:0.75rem">Score Breakdown</div>
+      <div class="breakdown-row">
+        <span class="breakdown-label">Subchondral cyst volume</span>
+        <span class="breakdown-pts" id="bd-cyst"></span>
+      </div>
+      <div class="breakdown-row">
+        <span class="breakdown-label">Sclerosis depth</span>
+        <span class="breakdown-pts" id="bd-sclerosis"></span>
+      </div>
+      <div class="breakdown-row">
+        <span class="breakdown-label">Lucency / fragment gap</span>
+        <span class="breakdown-pts" id="bd-lucency"></span>
+      </div>
+      <div class="breakdown-row">
+        <span class="breakdown-label">Joint space narrowing</span>
+        <span class="breakdown-pts" id="bd-narrowing"></span>
+      </div>
+      <div class="breakdown-row">
+        <span class="breakdown-label">Lesion containment</span>
+        <span class="breakdown-pts" id="bd-containment"></span>
+      </div>
+      <div class="breakdown-row breakdown-total">
+        <span class="breakdown-label">Total score</span>
+        <span class="breakdown-pts" id="bd-total"></span>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button class="btn-secondary" onclick="window.print()">Print / Save PDF</button>
+      <button class="btn-secondary" onclick="resetForm()">New Patient</button>
+    </div>
+
+  </div>
+
+  <div class="disclaimer">
+    <strong>Clinical Disclaimer.</strong> This calculator implements the OLT Progression Score as described in Ellebeshy et al. (2026), submitted to <em>Foot &amp; Ankle International</em>. It is intended as a clinical decision-support aid and does not replace individualised clinical judgement, subspecialist assessment, or institutional protocols. Score performance characteristics: bootstrap-corrected AUC 0.79 (95% CI 0.71–0.87); temporal validation AUC 0.77 (95% CI 0.65–0.89); interobserver ICC 0.84 (0.78–0.89). Derived from a multi-institutional cohort (n = 205) within a single regional healthcare network; external generalizability requires confirmation by the ongoing prospective international validation study. No data entered into this calculator are transmitted or stored.
+  </div>
+
+</div>
+
+<script>
+const TIERS = {
+  low: {
+    label: 'Low Risk',
+    cls: 'low',
+    rate: '8.7%',
+    ci: '95% CI: 3.0–19.6%',
+    recs: [
+      'Conservative management with clinical and radiographic review at 12 months',
+      'Serial CT surveillance not indicated at baseline',
+      'MRI deferred unless symptoms deteriorate or radiographic instability emerges',
+      'NPV 86% at cutoff ≥6 — adequate reassurance for expectant management'
+    ]
+  },
+  mod: {
+    label: 'Moderate Risk',
+    cls: 'mod',
+    rate: '37.9%',
+    ci: '95% CI: 24.0–53.5%',
+    recs: [
+      'Clinical and radiographic review at 6 months',
+      'CT re-imaging at 12 months',
+      'MRI indicated if CT demonstrates ≥20% cyst enlargement or new fragment instability',
+      'Early foot-and-ankle specialist referral recommended'
+    ]
+  },
+  high: {
+    label: 'High Risk',
+    cls: 'high',
+    rate: '77.1%',
+    ci: '95% CI: 61.4–88.2%',
+    recs: [
+      'Prompt referral to foot-and-ankle subspecialist within 4–6 weeks',
+      'MRI for pre-operative articular cartilage mapping',
+      'Surgical intervention should be discussed without undue delay',
+      'PPV 69%, Sensitivity 73%, Specificity 77% at cutoff ≥6'
+    ]
+  }
+};
+
+function getTier(score) {
+  if (score <= 3) return 'low';
+  if (score <= 5) return 'mod';
+  return 'high';
+}
+
+function calculate() {
+  const fields = ['cyst','sclerosis','lucency','narrowing','containment'];
+  const values = {};
+  let allFilled = true;
+
+  fields.forEach(f => {
+    const checked = document.querySelector(`input[name="${f}"]:checked`);
+    if (!checked) { allFilled = false; }
+    else { values[f] = parseInt(checked.value); }
+  });
+
+  if (!allFilled) {
+    alert('Please select a value for all five predictors before calculating.');
+    return;
+  }
+
+  const total = fields.reduce((sum, f) => sum + values[f], 0);
+  const tierKey = getTier(total);
+  const tier = TIERS[tierKey];
+
+  // Show result section
+  document.getElementById('result-section').style.display = 'block';
+  document.getElementById('result-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  // Set result card class
+  const card = document.getElementById('result-card');
+  card.className = `result-card ${tierKey}`;
+
+  // Score display
+  const scoreEl = document.getElementById('score-num');
+  scoreEl.textContent = total;
+  scoreEl.className = `score-display ${tierKey}`;
+
+  // Badge
+  const badge = document.getElementById('risk-badge');
+  badge.textContent = tier.label;
+  badge.className = `risk-badge ${tierKey}`;
+
+  // Progression rate
+  const rateEl = document.getElementById('prog-rate');
+  rateEl.textContent = tier.rate;
+  rateEl.className = `progression-rate ${tierKey}`;
+
+  document.getElementById('ci-note').textContent = tier.ci;
+
+  // Recommendations
+  const recList = document.getElementById('rec-list');
+  recList.innerHTML = tier.recs.map(r => `<li>${r}</li>`).join('');
+
+  // Breakdown
+  const setPts = (id, val) => {
+    const el = document.getElementById(id);
+    el.textContent = val === 0 ? '0 pts' : `+${val} pt${val === 1 ? '' : 's'}`;
+    el.className = `breakdown-pts${val > 0 ? ' nonzero' : ''}`;
+  };
+
+  setPts('bd-cyst', values.cyst);
+  setPts('bd-sclerosis', values.sclerosis);
+  setPts('bd-lucency', values.lucency);
+  setPts('bd-narrowing', values.narrowing);
+  setPts('bd-containment', values.containment);
+
+  const totalEl = document.getElementById('bd-total');
+  totalEl.textContent = `${total} / 9`;
+  totalEl.className = 'breakdown-pts nonzero';
+}
+
+function resetForm() {
+  document.querySelectorAll('input[type="radio"]').forEach(r => r.checked = false);
+  document.getElementById('result-section').style.display = 'none';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+</script>
+</body>
+</html>
